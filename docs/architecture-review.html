@@ -1,0 +1,626 @@
+<title>Studio Compliance — Three Implementations</title>
+<style>
+  :root {
+    --bg: #f4f5f4;
+    --surface: #ffffff;
+    --surface-2: #eceeed;
+    --ink: #20262b;
+    --muted: #5c666e;
+    --faint: #8a949c;
+    --line: #d5dbdd;
+    --line-strong: #b9c2c5;
+    --accent: #7d3644;
+    --accent-soft: #7d364418;
+    --blocked: #a03c34;
+    --conditional: #97701f;
+    --cleared: #3c7350;
+    --failed: #4a5560;
+    --code-bg: #eef0ef;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #171a1d;
+      --surface: #1f2428;
+      --surface-2: #262c31;
+      --ink: #e4e8ea;
+      --muted: #a2acb3;
+      --faint: #78838b;
+      --line: #343c42;
+      --line-strong: #47525a;
+      --accent: #c97484;
+      --accent-soft: #c9748420;
+      --blocked: #d4837b;
+      --conditional: #cfa860;
+      --cleared: #7fb694;
+      --failed: #97a2ac;
+      --code-bg: #14171a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #171a1d; --surface: #1f2428; --surface-2: #262c31; --ink: #e4e8ea;
+    --muted: #a2acb3; --faint: #78838b; --line: #343c42; --line-strong: #47525a;
+    --accent: #c97484; --accent-soft: #c9748420; --blocked: #d4837b;
+    --conditional: #cfa860; --cleared: #7fb694; --failed: #97a2ac; --code-bg: #14171a;
+  }
+  :root[data-theme="light"] {
+    --bg: #f4f5f4; --surface: #ffffff; --surface-2: #eceeed; --ink: #20262b;
+    --muted: #5c666e; --faint: #8a949c; --line: #d5dbdd; --line-strong: #b9c2c5;
+    --accent: #7d3644; --accent-soft: #7d364418; --blocked: #a03c34;
+    --conditional: #97701f; --cleared: #3c7350; --failed: #4a5560; --code-bg: #eef0ef;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.65 "Segoe UI", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 28px 96px; }
+
+  h1, h2, h3 { font-family: Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif; text-wrap: balance; }
+  h1 { font-size: 2.5rem; line-height: 1.15; font-weight: 700; margin: 0 0 12px; }
+  h2 { font-size: 1.75rem; margin: 0 0 6px; }
+  h3 { font-size: 1.15rem; margin: 34px 0 10px; }
+  p { max-width: 72ch; }
+  code, .mono {
+    font-family: ui-monospace, Consolas, "Cascadia Mono", Menlo, monospace;
+    font-size: 0.86em; background: var(--code-bg); padding: 1px 5px; border-radius: 3px;
+  }
+  .eyebrow {
+    font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent); font-weight: 600; margin: 0 0 8px;
+  }
+  a { color: var(--accent); }
+
+  /* header */
+  header.masthead { padding: 64px 0 34px; border-bottom: 3px solid var(--ink); }
+  .masthead .sub { color: var(--muted); max-width: 76ch; margin: 6px 0 0; }
+  nav.toc {
+    position: sticky; top: 0; z-index: 20; background: var(--bg);
+    border-bottom: 1px solid var(--line); padding: 10px 0; margin-bottom: 46px;
+    display: flex; gap: 22px; flex-wrap: wrap;
+  }
+  nav.toc a {
+    text-decoration: none; color: var(--muted); font-size: 0.82rem;
+    letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600;
+  }
+  nav.toc a:hover, nav.toc a:focus { color: var(--accent); }
+
+  /* timeline strip */
+  .lineage { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 40px 0 8px; }
+  .lineage .cell {
+    background: var(--surface); border: 1px solid var(--line); border-top: 3px solid var(--line-strong);
+    padding: 14px 16px;
+  }
+  .lineage .cell.current { border-top-color: var(--accent); }
+  .lineage .g { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
+  .lineage .n { font-family: Charter, Georgia, serif; font-size: 1.05rem; font-weight: 700; margin: 2px 0; }
+  .lineage .d { font-size: 0.83rem; color: var(--muted); line-height: 1.45; }
+
+  section.gen { margin-top: 72px; }
+  .gen-head { border-bottom: 2px solid var(--ink); padding-bottom: 14px; margin-bottom: 26px; }
+  .gen-head .meta { color: var(--muted); font-size: 0.9rem; margin-top: 4px; }
+  .gen-head .meta code { font-size: 0.8em; }
+
+  /* verdict + status pills */
+  .pill {
+    display: inline-block; font-family: ui-monospace, Consolas, monospace; font-size: 0.72rem;
+    padding: 1px 8px; border-radius: 2px; border: 1px solid; font-weight: 600; letter-spacing: 0.03em;
+  }
+  .pill.blocked { color: var(--blocked); border-color: var(--blocked); }
+  .pill.conditional { color: var(--conditional); border-color: var(--conditional); }
+  .pill.cleared { color: var(--cleared); border-color: var(--cleared); }
+  .pill.failed { color: var(--failed); border-color: var(--failed); }
+
+  /* flow diagrams */
+  .diagram {
+    background: var(--surface); border: 1px solid var(--line); padding: 26px 26px 30px;
+    overflow-x: auto; margin: 14px 0 6px;
+  }
+  .diagram .dtitle {
+    font-size: 0.72rem; letter-spacing: 0.13em; text-transform: uppercase;
+    color: var(--faint); font-weight: 600; margin-bottom: 20px;
+  }
+  .flow { display: flex; flex-direction: column; align-items: stretch; min-width: 620px; }
+  .node {
+    border: 1px solid var(--line-strong); background: var(--bg);
+    padding: 10px 16px; text-align: center;
+  }
+  .node .t { font-weight: 600; font-size: 0.92rem; }
+  .node .s { font-size: 0.8rem; color: var(--muted); margin-top: 2px; line-height: 1.45; }
+  .node.hot { border-color: var(--accent); background: var(--accent-soft); }
+  .node.bad { border-style: dashed; border-color: var(--blocked); }
+  .node.bad .t { color: var(--blocked); }
+  .conn { display: flex; flex-direction: column; align-items: center; height: 26px; }
+  .conn .stem { width: 1px; flex: 1; background: var(--line-strong); }
+  .conn .head {
+    width: 0; height: 0; border-left: 5px solid transparent;
+    border-right: 5px solid transparent; border-top: 6px solid var(--line-strong);
+  }
+  .conn.branch { position: relative; }
+  .conn .lbl {
+    position: absolute; left: 50%; top: 50%; transform: translate(12px, -50%);
+    font-size: 0.72rem; color: var(--faint); font-family: ui-monospace, Consolas, monospace; white-space: nowrap;
+  }
+  .lanes { display: grid; gap: 12px; }
+  .lanes.c2 { grid-template-columns: 1fr 1fr; }
+  .lanes.c3 { grid-template-columns: 1fr 1fr 1fr; }
+  .lanes .node { height: 100%; }
+
+  /* assessment grids */
+  .assess { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-top: 20px; }
+  @media (max-width: 760px) {
+    .assess, .lineage { grid-template-columns: 1fr; }
+  }
+  .assess .col { background: var(--surface); border: 1px solid var(--line); padding: 16px 18px 18px; }
+  .assess .col h4 {
+    margin: 0 0 10px; font-size: 0.72rem; letter-spacing: 0.13em;
+    text-transform: uppercase; color: var(--faint); font-weight: 700;
+    padding-bottom: 8px; border-bottom: 1px solid var(--line);
+  }
+  .assess .col.good h4 { color: var(--cleared); }
+  .assess .col.warn h4 { color: var(--conditional); }
+  .assess .col.risk h4 { color: var(--blocked); }
+  .assess ul { margin: 0; padding-left: 18px; }
+  .assess li { font-size: 0.86rem; margin-bottom: 8px; line-height: 1.5; color: var(--ink); }
+  .assess li strong { font-weight: 600; }
+
+  /* stat strip */
+  .stats { display: flex; flex-wrap: wrap; gap: 12px; margin: 18px 0 4px; }
+  .stat {
+    background: var(--surface); border: 1px solid var(--line); padding: 10px 16px; min-width: 128px;
+  }
+  .stat .v { font-family: Charter, Georgia, serif; font-size: 1.45rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat .k { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--faint); font-weight: 600; }
+
+  /* tables */
+  .tblwrap { overflow-x: auto; border: 1px solid var(--line); margin: 14px 0; }
+  table { border-collapse: collapse; width: 100%; background: var(--surface); font-size: 0.86rem; }
+  th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--faint); background: var(--surface-2); white-space: nowrap;
+  }
+  tr:last-child td { border-bottom: none; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td .mono { white-space: nowrap; }
+
+  .note {
+    border-left: 3px solid var(--accent); background: var(--surface);
+    padding: 12px 18px; margin: 20px 0; font-size: 0.9rem; color: var(--muted); max-width: 78ch;
+  }
+  .note strong { color: var(--ink); }
+
+  .ladder { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 8px 0 4px; font-size: 0.8rem; color: var(--faint); }
+  .ladder .gt { font-family: ui-monospace, monospace; }
+
+  /* future work */
+  .future { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .future { grid-template-columns: 1fr; } }
+  .future .item { background: var(--surface); border: 1px solid var(--line); padding: 16px 18px; }
+  .future .item h4 { margin: 0 0 6px; font-size: 0.98rem; font-family: Charter, Georgia, serif; }
+  .future .item p { font-size: 0.86rem; color: var(--muted); margin: 0; }
+  .future .item .tag {
+    display: inline-block; margin-top: 10px; font-size: 0.68rem; letter-spacing: 0.1em;
+    text-transform: uppercase; font-weight: 700; color: var(--accent);
+  }
+
+  footer { margin-top: 80px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--faint); font-size: 0.8rem; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <p class="eyebrow">Engineering Review · Media &amp; Entertainment Legal Compliance</p>
+  <h1>Three Implementations, One Platform</h1>
+  <p class="sub">
+    A code-level review of the Studio Compliance platform across its three generations:
+    the original single-agent baseline, the ADK&nbsp;2.0 multi-agent studio
+    (both on <span class="mono">github.com/mudk-ux/studio-ai-legal-compliance-agent</span>, branch <span class="mono">main</span>),
+    and the production MVP&nbsp;1.0 rewrite (branch <span class="mono">v2</span>, tag <span class="mono">mvp-1.0</span>) —
+    what each accomplished, where each fell short, and what remains.
+  </p>
+</header>
+
+<nav class="toc" aria-label="Sections">
+  <a href="#gen1">1 · Baseline</a>
+  <a href="#gen2">2 · ADK 2.0 Studio</a>
+  <a href="#gen3">3 · MVP 1.0</a>
+  <a href="#compare">Comparison</a>
+  <a href="#future">Future Work</a>
+</nav>
+
+<div class="lineage">
+  <div class="cell">
+    <div class="g">Generation 1</div>
+    <div class="n">Original Baseline</div>
+    <div class="d">Single ADK agent on Vertex AI Reasoning Engine; dual-mode tools with deterministic fallbacks; Streamlit dashboard.</div>
+  </div>
+  <div class="cell">
+    <div class="g">Generation 2</div>
+    <div class="n">ADK 2.0 Multi-Agent Studio</div>
+    <div class="d">Coordinator–specialist graph in name; deterministic Python execution; HITL payload design; second live deployment.</div>
+  </div>
+  <div class="cell current">
+    <div class="g">Generation 3 — current</div>
+    <div class="n">MVP 1.0</div>
+    <div class="d">Full rewrite. Real LLM agents over an audited fail-loud pipeline; verified live across five QA rounds plus a final acceptance run.</div>
+  </div>
+</div>
+
+<!-- ================= GENERATION 1 ================= -->
+<section class="gen" id="gen1">
+  <div class="gen-head">
+    <p class="eyebrow">Generation 1</p>
+    <h2>Original Baseline — Single-Agent Coordinator</h2>
+    <p class="meta">
+      Track 1 of the original repository · <code>src/agent.py</code>, <code>src/tools/gcp_ml_tools.py</code>,
+      <code>deploy/agent.py</code>, <code>frontend/app.py</code> · deployed to Vertex AI Reasoning Engine · ~35 s per audit
+    </p>
+  </div>
+
+  <p>
+    The baseline established the domain decomposition that survived all three generations:
+    screenplays, set/wardrobe images, and rough-cut video vetted against sponsor-exclusivity deals,
+    Standards &amp; Practices rules, and right-of-publicity exposure. It shipped a real ADK agent to a
+    real cloud runtime — with a perception layer that quietly substituted simulation when the real
+    thing failed.
+  </p>
+
+  <div class="diagram">
+    <div class="dtitle">Architecture — cloud request path</div>
+    <div class="flow">
+      <div class="node"><div class="t">Streamlit dashboard</div><div class="s"><span class="mono">frontend/app.py</span> · localhost:8501 · presets + custom upload</div></div>
+      <div class="conn"><div class="stem"></div><div class="head"></div></div>
+      <div class="node"><div class="t">GCS staging bucket</div><div class="s">media uploaded to <span class="mono">intake_uploads/</span>, passed as <span class="mono">gs://</span> URI</div></div>
+      <div class="conn"><div class="stem"></div><div class="head"></div></div>
+      <div class="node hot"><div class="t">Vertex AI Reasoning Engine</div><div class="s"><span class="mono">LifecycleOptimizedAgent</span> (ADK Agent, gemini-2.5-flash) · new event loop + <span class="mono">InMemoryRunner</span> per query</div></div>
+      <div class="conn"><div class="stem"></div><div class="head"></div></div>
+      <div class="node"><div class="t">Tool layer — dual mode</div><div class="s"><span class="mono">gcp_ml_tools.py</span> · every live call wrapped in <span class="mono">try / except: pass</span></div></div>
+      <div class="conn branch"><div class="stem"></div><div class="head"></div><span class="lbl">on any exception, falls through silently</span></div>
+      <div class="lanes c2">
+        <div class="node"><div class="t">Live mode</div><div class="s">Natural Language <span class="mono">analyze_entities</span> · Vision <span class="mono">logo_detection</span> + OCR · Video Intelligence <span class="mono">LOGO_RECOGNITION</span></div></div>
+        <div class="node bad"><div class="t">Fallback mode</div><div class="s">brand inferred from the asset <em>filename</em> ("handbag" → Louis Vuitton @ 0.972) with fabricated confidence scores</div></div>
+      </div>
+      <div class="conn"><div class="stem"></div><div class="head"></div></div>
+      <div class="node"><div class="t">Response assembly</div><div class="s">agent event stream scraped for text; largest "structured-looking" block returned</div></div>
+      <div class="conn"><div class="stem"></div><div class="head"></div></div>
+      <div class="node"><div class="t">Dashboard verdict card</div><div class="s">status badge + senior-reviewer sign-off panel (display only)</div></div>
+    </div>
+  </div>
+
+  <div class="diagram">
+    <div class="dtitle">Process flow — rule pipeline (<span class="mono">src/agent.py</span>)</div>
+    <div class="flow">
+      <div class="node"><div class="t">Intake constraints</div><div class="s">show context · target rating · primary sponsor · restricted competitors</div></div>
+      <div class="conn"><div class="stem"></div><div class="head"></div></div>
+      <div class="node"><div class="t">Policy text compiled</div><div class="s"><span class="mono">compile_active_policy()</span> — built, then discarded (return value never used)</div></div>
+      <div class="conn"><div class="stem"></div><div class="head"></div></div>
+      <div class="lanes c3">
+        <div class="node"><div class="t">Text</div><div class="s">NER names → <strong>every person flagged</strong> as a violation; org list vs. restricted + hardcoded brand list</div></div>
+        <div class="node"><div class="t">Image</div><div class="s">logo scan → substance category or exclusivity check</div></div>
+        <div class="node"><div class="t">Video</div><div class="s">brand timestamps → VFX slate; timecodes rendered <span class="mono">00:00:SS</span> (148 s → <span class="mono">00:00:148</span>)</div></div>
+      </div>
+      <div class="conn"><div class="stem"></div><div class="head"></div></div>
+      <div class="node"><div class="t">Severity roll-up → ComplianceReport</div><div class="s">Pydantic schema · SQLite session store (<span class="mono">/tmp</span>) · structured JSON logs + PII redaction</div></div>
+    </div>
+  </div>
+
+  <div class="assess">
+    <div class="col good">
+      <h4>Accomplished</h4>
+      <ul>
+        <li><strong>The right problem, decomposed correctly</strong> — the modality split and rule taxonomy carried through every later generation.</li>
+        <li>A genuine ADK agent with tool bindings and instruction prompt, <strong>deployed live</strong> to Reasoning Engine and returning verdicts.</li>
+        <li>Real GCP API wrappers with native <span class="mono">gs://</span> support in live mode.</li>
+        <li>Typed Pydantic report schemas; Streamlit operator dashboard; structured logging and PII-redaction utilities.</li>
+      </ul>
+    </div>
+    <div class="col warn">
+      <h4>Limitations · simulated parts</h4>
+      <ul>
+        <li><strong>Filename fallback was reachable in production.</strong> Any auth/quota failure silently downgraded detection to filename keywords with invented confidences.</li>
+        <li>NER fallback was a hardcoded list of the exact names in the sample scripts — high recall on the demo, none beyond it.</li>
+        <li>The "0/3-Plus Census rule" existed as a label on findings, not as an executed check; every detected person became a violation.</li>
+        <li>Script compaction kept the first 20% and last 75% of a capped window — the middle of a feature was never read.</li>
+        <li>Report metadata cited <span class="mono">gemini-3.5-pro</span>, a model that does not exist.</li>
+      </ul>
+    </div>
+    <div class="col risk">
+      <h4>Drawbacks</h4>
+      <ul>
+        <li><strong>Silent degradation is the worst failure mode for a legal tool</strong>: an unanalyzed asset could return <span class="pill cleared">CLEARED</span>.</li>
+        <li>Verdicts extracted from chat text by substring search ("BLOCKED" in response).</li>
+        <li>Broken video timecodes made VFX slates unusable in editorial.</li>
+        <li>Hardcoded project IDs and buckets; committed <span class="mono">.pyc</span> files and ~100&nbsp;MB of media; no unit tests of policy logic.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================= GENERATION 2 ================= -->
+<section class="gen" id="gen2">
+  <div class="gen-head">
+    <p class="eyebrow">Generation 2</p>
+    <h2>ADK 2.0 Multi-Agent Studio</h2>
+    <p class="meta">
+      Track 2 of the original repository · <code>adk2_multiagent_studio/</code>, <code>src/orchestration.py</code> ·
+      second Reasoning Engine deployment · ~0.8 s per audit
+    </p>
+  </div>
+
+  <p>
+    The second generation introduced the coordinator–specialist decomposition and the human-in-the-loop
+    concept — both of which became real in MVP&nbsp;1.0. In this generation they were structural sketches:
+    the "agents" were plain Python classes carrying model-name strings, and no LLM was invoked anywhere
+    in the graph. Its speed advantage over Generation&nbsp;1 (~42×) was the speed of regex against an LLM round-trip.
+  </p>
+
+  <div class="diagram">
+    <div class="dtitle">Architecture &amp; process flow — orchestrator graph</div>
+    <div class="flow">
+      <div class="node"><div class="t">Studio dashboard</div><div class="s"><span class="mono">app_adk2_studio.py</span> · localhost:8502 · GCS staging</div></div>
+      <div class="conn"><div class="stem"></div><div class="head"></div></div>
+      <div class="node hot"><div class="t">ADK2MultiAgentGraphOrchestrator</div><div class="s">plain Python class · ADK imported behind <span class="mono">HAS_ADK_NATIVE</span> flag, never used</div></div>
+      <div class="conn"><div class="stem"></div><div class="head"></div></div>
+      <div class="node"><div class="t">CoordinatorAgent</div><div class="s">writes one execution-trace entry ("policy compiled"); no reasoning, no model call</div></div>
+      <div class="conn branch"><div class="stem"></div><div class="head"></div><span class="lbl">route by asset modality</span></div>
+      <div class="lanes c2">
+        <div class="node"><div class="t">ScriptClearanceAgent</div><div class="s">"gemini-2.5-flash" tier label · substring match of NER output against restricted terms + a hardcoded brand list</div></div>
+        <div class="node"><div class="t">BrandExclusivityAgent</div><div class="s">"gemini-3.5-pro" tier label · same dual-mode vision/video wrappers as Gen 1 · every detection emitted as CRITICAL</div></div>
+      </div>
+      <div class="conn"><div class="stem"></div><div class="head"></div></div>
+      <div class="node bad"><div class="t">HITL "execution pause"</div><div class="s"><span class="mono">pause_execution_for_human_review()</span> returns a payload dict with a resume token — then execution continues on the next line; the token is never consumed</div></div>
+      <div class="conn"><div class="stem"></div><div class="head"></div></div>
+      <div class="node"><div class="t">RemediationSlateAgent</div><div class="s">severity roll-up → verdict · result payload with execution trace</div></div>
+    </div>
+  </div>
+
+  <div class="assess">
+    <div class="col good">
+      <h4>Accomplished</h4>
+      <ul>
+        <li><strong>The multi-agent decomposition</strong> — coordinator, script specialist, brand specialist, remediation compiler — that MVP&nbsp;1.0 later implemented with real LLM agents.</li>
+        <li><strong>The HITL contract design</strong>: pause payloads, reviewer roles, resume tokens — a good schema awaiting an implementation.</li>
+        <li>Modality routing and per-node execution traces.</li>
+        <li>A second live Reasoning Engine deployment alongside the baseline.</li>
+      </ul>
+    </div>
+    <div class="col warn">
+      <h4>Limitations · simulated parts</h4>
+      <ul>
+        <li><strong>No LLM in the loop.</strong> <span class="mono">model_tier</span> strings were decorative; specialists executed keyword matching over the same dual-mode tool outputs as Gen&nbsp;1.</li>
+        <li>HITL never paused anything — findings were annotated and the workflow ran to completion.</li>
+        <li>The flagship module imported <span class="mono">src.models.schemas</span>, a path that did not exist; as committed, it could never have been imported successfully.</li>
+        <li>Perception inherited the filename-fallback layer wholesale.</li>
+      </ul>
+    </div>
+    <div class="col risk">
+      <h4>Drawbacks</h4>
+      <ul>
+        <li><strong>Architecture as nomenclature</strong> — class names promised behavior the code did not perform, making the system harder to evaluate honestly than a plain pipeline.</li>
+        <li>Benchmark claims were circular: the "40-cell matrix" scored a system recognizing its own test filenames, and the report's "100% consistency" summary was written unconditionally, even for errored runs.</li>
+        <li>The headline latency/accuracy comparison against Gen&nbsp;1 measured different mechanisms, not better ones.</li>
+        <li>Near-duplicate source trees (<span class="mono">src/</span>, <span class="mono">deploy/src/</span>, <span class="mono">adk2_multiagent_studio/src/</span>) drifting independently.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================= GENERATION 3 ================= -->
+<section class="gen" id="gen3">
+  <div class="gen-head">
+    <p class="eyebrow">Generation 3 — current</p>
+    <h2>MVP 1.0 — Production Rewrite</h2>
+    <p class="meta">
+      Branch <code>v2</code>, tag <code>mvp-1.0</code> · <code>src/studio_compliance/</code> ·
+      two Agent Engine deployments (baseline + multi-agent) · 73 unit tests ·
+      verified across five QA rounds and a final acceptance run in an enterprise GCP environment
+    </p>
+  </div>
+
+  <p>
+    A ground-up rewrite around one principle: <strong>evidence over vibes</strong>. Both deployable tracks are
+    real ADK <span class="mono">LlmAgent</span>s, but they share a single audited pipeline — agents route, reason,
+    and explain; they cannot invent facts. There is no fallback path anywhere in production code:
+    a failed perception stage produces a <span class="pill failed">FAILED</span> verdict ("this asset was <em>not</em> fully vetted"),
+    never a fabricated clearance. Mock perception exists only inside the test suite.
+  </p>
+
+  <div class="stats">
+    <div class="stat"><div class="v">6 / 6</div><div class="k">Smoke gates, both engines</div></div>
+    <div class="stat"><div class="v">85.7%</div><div class="k">Verdict accuracy · local</div></div>
+    <div class="stat"><div class="v">84.6%</div><div class="k">Verdict accuracy · deployed</div></div>
+    <div class="stat"><div class="v">79.2%</div><div class="k">Entity recall</div></div>
+    <div class="stat"><div class="v">0</div><div class="k">Forbidden-entity violations</div></div>
+    <div class="stat"><div class="v">0</div><div class="k">Silent failures</div></div>
+    <div class="stat"><div class="v">73</div><div class="k">Unit tests</div></div>
+  </div>
+  <p class="sub" style="color:var(--muted); font-size:0.84rem; margin-top:2px;">
+    Final acceptance run, 2026-07-13. Scores computed by the eval harness against a labeled ground-truth manifest;
+    infra failures bucketed separately from wrong verdicts, never counted as accuracy.
+  </p>
+
+  <div class="diagram">
+    <div class="dtitle">Architecture — two agent tracks over one audited core</div>
+    <div class="flow">
+      <div class="lanes c2">
+        <div class="node"><div class="t">Track 1 · Baseline engine</div><div class="s">one coordinator <span class="mono">LlmAgent</span> (Flash) · drives the full pipeline through a single tool</div></div>
+        <div class="node"><div class="t">Track 2 · Multi-agent engine</div><div class="s">coordinator (Flash) → <span class="mono">script_clearance</span> / <span class="mono">brand_exclusivity</span> specialists (Pro) → <span class="mono">remediation_slate</span> compiler</div></div>
+      </div>
+      <div class="conn branch"><div class="stem"></div><div class="head"></div><span class="lbl">tools: JSON in / out, provenance-carrying, errors surfaced in payload</span></div>
+      <div class="node hot"><div class="t">CompliancePipeline — perception → policy → report</div><div class="s">the audited core; agents add routing and counsel notes, never facts</div></div>
+      <div class="conn"><div class="stem"></div><div class="head"></div></div>
+      <div class="lanes c3">
+        <div class="node"><div class="t">Text</div><div class="s">CRLF normalize · Gutenberg strip · PII redact · chunked NL NER (whole document) · proper-mention filter · constraint-term scan · Gemini living-person analysis (structured output)</div></div>
+        <div class="node"><div class="t">Image</div><div class="s">Vision logo detection + OCR supplement · real confidences</div></div>
+        <div class="node"><div class="t">Video</div><div class="s">Video Intelligence logo tracks · true <span class="mono">HH:MM:SS.mmm</span> timecodes → VFX slates</div></div>
+      </div>
+      <div class="conn"><div class="stem"></div><div class="head"></div></div>
+      <div class="node"><div class="t">Deterministic policy engine</div><div class="s">alias-normalized, type-aware matching · honorific + screenplay-structure suppression · table-driven S&amp;P substance gating by rating · LLM-free and auditable</div></div>
+      <div class="conn"><div class="stem"></div><div class="head"></div></div>
+      <div class="node"><div class="t">Verdict + human review</div><div class="s">CRITICAL/HIGH findings persist pending HITL records (GCS) · approve / enforce via CLI by a named reviewer · verdict recomputes only on resolution</div></div>
+    </div>
+  </div>
+
+  <div class="ladder">
+    Verdict ladder:&nbsp;
+    <span class="pill failed">FAILED</span> <span class="gt">&gt;</span>
+    <span class="pill blocked">BLOCKED</span> <span class="gt">&gt;</span>
+    <span class="pill conditional">CONDITIONAL</span> <span class="gt">&gt;</span>
+    <span class="pill cleared">CLEARED</span>
+    &nbsp;· LOW / INFO findings are advisory and never gate the verdict
+  </div>
+
+  <div class="diagram">
+    <div class="dtitle">Data flow — state passed by reference, never through the model's context</div>
+    <div class="flow">
+      <div class="node"><div class="t">Asset</div><div class="s"><span class="mono">gs://</span> URI + intake constraints (rating, sponsor, restricted competitors)</div></div>
+      <div class="conn"><div class="stem"></div><div class="head"></div></div>
+      <div class="node"><div class="t">Entity extraction</div><div class="s">300–400 entities on a feature script — full list written to <span class="mono">gs://…/entities/&lt;id&gt;.json</span>; agent receives a compact preview + <span class="mono">entities_uri</span></div></div>
+      <div class="conn branch"><div class="stem"></div><div class="head"></div><span class="lbl">entities_uri → detections_uri (no 40 KB tool arguments)</span></div>
+      <div class="node"><div class="t">Policy evaluation → findings → report</div><div class="s">every finding carries <span class="mono">source_api</span>, real confidence, timecodes</div></div>
+      <div class="conn"><div class="stem"></div><div class="head"></div></div>
+      <div class="node"><div class="t">Report storage</div><div class="s">full JSON (50–200 KB) → <span class="mono">gs://…/reports/&lt;run_id&gt;.json</span>; agent replies with a token-safe compact block + <span class="mono">report_uri</span></div></div>
+      <div class="conn"><div class="stem"></div><div class="head"></div></div>
+      <div class="node"><div class="t">Caller / eval harness</div><div class="s">downloads the full report from GCS · scores against the ground-truth manifest · recall, precision traps, verdict accuracy computed, never asserted</div></div>
+    </div>
+  </div>
+
+  <h3>Verification history</h3>
+  <div class="tblwrap"><table>
+    <tr><th>Round</th><th>Gate</th><th>Outcome</th></tr>
+    <tr><td class="num">R1</td><td>First corp deployment</td><td>Build failed (packaging paths) · NL API crash on CRLF text · fixed with abspath staging, CRLF normalization, <span class="mono">protobuf&lt;7</span></td></tr>
+    <tr><td class="num">R2</td><td>Deploy retry + eval integrity</td><td>Container import failure exposed; policy recalibrated from live NL behavior (advisory LOW/INFO, honorific pass)</td></tr>
+    <tr><td class="num">R3</td><td>Engines must start</td><td><strong>Deployment succeeded</strong> · smoke passed · routing + remote HITL verified · report retrieval defects identified</td></tr>
+    <tr><td class="num">R4</td><td>Remote eval must complete</td><td><strong>10/11 verdicts correct</strong> via <span class="mono">report_uri</span> architecture · multi-agent serialization ceiling found</td></tr>
+    <tr><td class="num">R5</td><td>Script specialist on a feature script</td><td><strong>Passed</strong> — 301 entities via <span class="mono">entities_uri</span>, no truncation · Gutenberg strip + 503 retry added</td></tr>
+    <tr><td class="num">Final</td><td>MVP acceptance</td><td>Both engines 6/6 smoke · local 12/14 · remote 11/13 · HITL approve/enforce/double-reject verified · declared <strong>MVP&nbsp;1.0</strong></td></tr>
+  </table></div>
+
+  <div class="assess">
+    <div class="col good">
+      <h4>Accomplished · verified live</h4>
+      <ul>
+        <li><strong>Every README claim is backed by a live corp run</strong>: deployment (~90 s builds), smoke gates, remote evals, specialist routing, constraint gating, HITL lifecycle.</li>
+        <li>Fail-loud semantics end to end — zero silent failures across all rounds; infra errors surface as <span class="pill failed">FAILED</span>, never as clearances.</li>
+        <li>Honest evaluation: labeled manifest, computed scores, unstable assets explicitly unscored, zero forbidden-entity (precision-trap) violations.</li>
+        <li>Deployable by anyone: env-driven config, Terraform (APIs, bucket TTLs, service-agent IAM), CI, no hardcoded identity.</li>
+        <li>Real HITL: persisted pending reviews, named-reviewer approve/enforce, double-resolution rejected, verdict recompute.</li>
+      </ul>
+    </div>
+    <div class="col warn">
+      <h4>Limitations · known behavior</h4>
+      <ul>
+        <li>The two remaining verdict deltas are <strong>honest conservatism</strong>: an 1895 play returns <span class="pill conditional">CONDITIONAL</span> because real institutions ("Tories", "Bankruptcy Court") appear in dialogue with no clearance on file.</li>
+        <li>10-minute-plus video works locally (~9.4 min analysis) but hits corporate-proxy 503 stream resets when run through the deployed engine — an environment constraint, one retry built in.</li>
+        <li>Video Intelligence emits sub-second flicker detections on CG content — reported truthfully as MEDIUMs today.</li>
+        <li>LLM portrayal-risk grading (HIGH vs. MEDIUM for living figures) can vary between runs; documented in the manifest rather than masked.</li>
+        <li>Logo detection cannot see pattern-similarity infringement — the Damier-style lookalike bag legitimately clears under current rules.</li>
+      </ul>
+    </div>
+    <div class="col risk">
+      <h4>Drawbacks · accepted trade-offs</h4>
+      <ul>
+        <li>Video Intelligence dominates cost and wall-clock time (per-minute billing; ~10 min for a 12-min 1080p asset).</li>
+        <li>Report and entity payloads live in GCS — callers need bucket access; the conversational reply alone is deliberately not the full record.</li>
+        <li>The file-per-record HITL store is safe for a small reviewer team, not for high-concurrency review desks.</li>
+        <li>Deterministic policy tables (aliases, substance brands) require curation as coverage grows.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================= COMPARISON ================= -->
+<section class="gen" id="compare">
+  <div class="gen-head">
+    <p class="eyebrow">Side by side</p>
+    <h2>Comparison</h2>
+  </div>
+  <div class="tblwrap"><table>
+    <tr><th></th><th>Gen 1 · Baseline</th><th>Gen 2 · ADK 2.0 Studio</th><th>Gen 3 · MVP 1.0</th></tr>
+    <tr><td><strong>LLM in the loop</strong></td><td>Yes — one deployed agent (chat-scraped output)</td><td>No — model names as labels only</td><td>Yes — coordinator + specialists, plus structured-output script analysis</td></tr>
+    <tr><td><strong>Perception on failure</strong></td><td>Silent filename fallback with invented confidences</td><td>Same fallback layer inherited</td><td>Raises; report becomes <span class="pill failed">FAILED</span>; no fallback path exists</td></tr>
+    <tr><td><strong>Human in the loop</strong></td><td>Status labels on findings</td><td>Payload + token designed; never pauses</td><td>Persisted queue, named reviewer, approve/enforce, verdict recompute — verified remotely</td></tr>
+    <tr><td><strong>Evaluation integrity</strong></td><td>Substring-match verdicts; demo-tuned fallbacks</td><td>Hardcoded "100% consistency" written unconditionally</td><td>Labeled manifest; computed recall/accuracy; unstable assets unscored; errors bucketed separately</td></tr>
+    <tr><td><strong>Video timecodes</strong></td><td><span class="mono">00:00:148</span></td><td>inherited</td><td><span class="mono">00:02:28.000</span> — regression-tested</td></tr>
+    <tr><td><strong>Portability</strong></td><td>Hardcoded project + bucket</td><td>Hardcoded project + bucket</td><td><span class="mono">STUDIO_*</span> env config + Terraform; deployable to any GCP project</td></tr>
+    <tr><td><strong>Tests</strong></td><td class="num">0 unit tests of logic</td><td class="num">script-style checks</td><td class="num">73 (mocks confined to tests/)</td></tr>
+    <tr><td><strong>Deployment status</strong></td><td>Deployed, worked with caveats</td><td>Deployed; core module unimportable as committed</td><td>Both tracks live; 6/6 smoke; remote evals scored</td></tr>
+    <tr><td><strong>Typical latency</strong></td><td class="num">~35 s</td><td class="num">~0.8 s (no model, no live APIs)</td><td class="num">seconds (text/image) · ~10 min (long video, API-bound)</td></tr>
+  </table></div>
+
+  <div class="note">
+    <strong>The through-line:</strong> Generation 1 proved the domain and the deployment path. Generation 2 sketched
+    the right architecture without implementing it. Generation 3 kept both contributions — the domain
+    decomposition and the coordinator–specialist shape — and rebuilt the execution so that every number the
+    system reports can be traced to a real API response, a real model call, or a named human decision.
+  </div>
+</section>
+
+<!-- ================= FUTURE WORK ================= -->
+<section class="gen" id="future">
+  <div class="gen-head">
+    <p class="eyebrow">After the MVP</p>
+    <h2>Future Work</h2>
+    <p class="meta">Deliberately deferred, in rough priority order. None block production use of MVP 1.0 for the verified workflows.</p>
+  </div>
+
+  <div class="future">
+    <div class="item">
+      <h4>Segment-scoped video analysis</h4>
+      <p>Analyze editor-specified ranges (<span class="mono">video_context.segments</span>) or poll long-running operations asynchronously. Removes the 10-minute synchronous stream that corporate proxies reset, and cuts Video Intelligence cost 5–10× on feature-length cuts.</p>
+      <span class="tag">Reliability · Cost</span>
+    </div>
+    <div class="item">
+      <h4>Detection quality floor for video</h4>
+      <p>A track-duration / confidence threshold as an auditable policy rule, converting sub-second flicker false positives on CG content into advisory findings instead of MEDIUMs.</p>
+      <span class="tag">Precision</span>
+    </div>
+    <div class="item">
+      <h4>Script–video timestamp alignment</h4>
+      <p>Speech-to-text plus forced alignment builds a scene index joining screenplay text to timecodes — enabling contextual checks logo detection cannot see: negative sponsor portrayal, behavioral S&amp;P content, likeness appearances. Contextual LLM judgments would route to HITL, never auto-block.</p>
+      <span class="tag">Capability</span>
+    </div>
+    <div class="item">
+      <h4>Pattern-similarity infringement pass</h4>
+      <p>A contextual multimodal review for trade-dress lookalikes (the Damier-style bag) where no explicit logo exists — the known gap in logo-model perception.</p>
+      <span class="tag">Capability</span>
+    </div>
+    <div class="item">
+      <h4>Period / historical-context handling</h4>
+      <p>The last verdict deltas come from real institutions in period dialogue. Options: an era-aware clearance whitelist, or an LLM pass classifying organizational references as historical-context vs. commercial — keeping the conservative default.</p>
+      <span class="tag">Precision</span>
+    </div>
+    <div class="item">
+      <h4>Upload and transcode efficiency</h4>
+      <p>Hash-based upload de-duplication and low-resolution proxy transcodes before Video Intelligence submission — the audit found proxies preserve logo legibility at a fraction of the bandwidth and processing cost.</p>
+      <span class="tag">Cost</span>
+    </div>
+    <div class="item">
+      <h4>HITL on Firestore</h4>
+      <p>Transactional review records for concurrent legal reviewers, replacing the file-per-record GCS store once the reviewer team grows.</p>
+      <span class="tag">Scale</span>
+    </div>
+    <div class="item">
+      <h4>Hardening the agent contract</h4>
+      <p>A <span class="mono">response_schema</span> on the coordinator and client-side 429/backoff retries in the perception layer — belt-and-suspenders over the already-robust <span class="mono">report_uri</span> retrieval path.</p>
+      <span class="tag">Robustness</span>
+    </div>
+  </div>
+
+  <div class="note" style="margin-top:26px;">
+    <strong>Dataset hygiene, carried forward:</strong> the benchmark suite still contains two byte-identical file pairs
+    (the "Elephants Dream teaser" is device-promo footage; the "beverage can" is the handbag image). Sourcing true
+    negative-control media would sharpen the eval, and the ground-truth manifest is designed to absorb new labeled
+    assets as one-line additions.
+  </div>
+</section>
+
+<footer>
+  Prepared 2026-07-13 · Sources: original repository (branch <span class="mono">main</span>, commit <span class="mono">555e107</span>),
+  MVP repository (branch <span class="mono">v2</span>, tag <span class="mono">mvp-1.0</span>),
+  five independent QA validation reports and the MVP 1.0 acceptance report, benchmark asset suite and eval results.
+</footer>
+
+</div>

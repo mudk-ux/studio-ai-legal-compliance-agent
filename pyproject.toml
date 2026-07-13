@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "studio-compliance"
+version = "1.0.0"
+description = "Production M&E legal E&O, sponsor-exclusivity and S&P compliance agents on Google Cloud (Vertex AI Agent Engine)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2.7",
+    "pydantic-settings>=2.2",
+    "PyYAML>=6.0",
+    "google-cloud-language>=2.13",
+    "google-cloud-vision>=3.7",
+    "google-cloud-videointelligence>=2.13",
+    "google-cloud-storage>=2.14",
+    "google-genai>=1.9",
+    # protobuf 7.x breaks google-cloud-language response deserialization
+    # (verified live 2026-07); keep on 6.x until the client libraries catch up.
+    "protobuf<7",
+]
+
+[project.optional-dependencies]
+# Needed to construct/deploy the ADK agents and talk to Agent Engine.
+agents = [
+    "google-adk>=1.5",
+    "google-cloud-aiplatform[adk,agent_engines]>=1.95",
+]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 110
+extend-exclude = ["legacy", "docs"]
+target-version = "py310"
+src = ["src", "tests", "deploy", "evals"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = ["E501"]
